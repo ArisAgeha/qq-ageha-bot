@@ -1,0 +1,24 @@
+{
+    "name": "qq-bot",
+    "version": "1.0.0",
+    "main": "index.js",
+    "license": "MIT",
+    "scripts": {
+        "start": "koishi start -- -r ts-node/register ./src/index.ts",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "description": "",
+    "devDependencies": {
+        "koishi": "^1.12.0",
+        "ts-node": "^8.10.2",
+        "typescript": "^3.9.5"
+    },
+    "dependencies": {
+        "@types/node": "^14.0.14",
+        "dayjs": "^1.8.28",
+        "koishi-database-mysql": "^1.2.0",
+        "nedb-promises": "^4.0.3"
+    }
+}

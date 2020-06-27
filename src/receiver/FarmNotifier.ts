@@ -14,9 +14,8 @@ export class FarmNotifier {
     private initReceiver() {
         const app = this.app;
 
-        this.listenToGroupMemeber(435649543, [87725092, 530126639], async (msg: Meta<'message'>) => {
+        this.app.group(435649543).receiver.on('message', (msg) => {
             const text = msg.rawMessage;
-            console.log(msg);
 
             if (text === 'farm') this.setFarmDate(msg);
             if (/^yc \d+(h|hour|hours|m|min|mins)$/.test(text)) this.delayNotify(msg);
@@ -33,7 +32,7 @@ export class FarmNotifier {
         const groupId = msg.groupId;
 
         await datastore.remove({ qqId: qqId, groupId: groupId });
-        msg.$send(`[CQ:at,qq=${qqId}] 已取消 是个好地主`)
+        msg.$send(`[CQ:at,qq=${qqId}] 已取消提醒`)
     }
 
     private checkNotify() {
@@ -80,7 +79,7 @@ export class FarmNotifier {
             { upsert: true }
         )
 
-        const formatDate = dayjs(notifyDate).format('MM-DD HH:mm:ss');
+        const formatDate = dayjs(notifyDate).format('YYYY-MM-DD HH:mm:ss');
         msg.$send(`[CQ:at,qq=${qqId}] 已推延 下次提醒时间为${formatDate}`)
     }
 
@@ -88,8 +87,8 @@ export class FarmNotifier {
         const qqId = msg.sender.userId;
         const groupId = msg.groupId;
         const now = Number(Date.now());
-        const nextNotifyDate = now + 60 * 1000;
-        // const nextNotifyDate = now + 8 * 60 * 60 * 1000;
+        // const nextNotifyDate = now + 60 * 1000;
+        const nextNotifyDate = now + 8 * 60 * 60 * 1000;
 
         const lastNotifyDateData: NotifyData = await datastore.findOne({
             qqId,
@@ -107,7 +106,7 @@ export class FarmNotifier {
             await datastore.insert({ qqId, groupId, notifyDate: nextNotifyDate, isNotified: false });
         }
 
-        const formatDate = dayjs(nextNotifyDate).format('MM-DD HH:mm:ss');
+        const formatDate = dayjs(nextNotifyDate).format('YYYY-MM-DD HH:mm:ss');
         await msg.$send(`[CQ:at,qq=${qqId}] Mark 下次提醒时间为${formatDate}`);
     }
 

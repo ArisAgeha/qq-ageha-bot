@@ -1,5 +1,5 @@
 import { App } from 'koishi';
-import { Receiver } from './receiver/Receiver';
+import { FarmNotifier } from './receiver/FarmNotifier';
 
 const config = {
     type: "http",
@@ -18,7 +18,7 @@ const app = new App(config as any);
 
 app.start()
 
-new Receiver(app);
+new FarmNotifier(app);
 
 console.log('Koishi is started');
 console.log(`port: ${config.port}`);

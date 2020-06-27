@@ -3,7 +3,7 @@ import datastore from '../nedb/Nedb';
 import { convertCompilerOptionsFromJson, createTextChangeRange } from 'typescript';
 const dayjs = require('dayjs');
 
-export class Receiver {
+export class FarmNotifier {
     app: App;
 
     constructor(app: App) {
@@ -13,8 +13,6 @@ export class Receiver {
 
     private initReceiver() {
         const app = this.app;
-
-        datastore.remove({}, { multi: true });
 
         this.listenToGroupMemeber(435649543, [87725092, 530126639], async (msg: Meta<'message'>) => {
             const text = msg.rawMessage;

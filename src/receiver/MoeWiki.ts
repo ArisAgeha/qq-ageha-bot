@@ -52,7 +52,9 @@ export class MoeWiki {
 
         const res = vNode.introduction + pictureCq + '\r\n' + vNode.catalog + '\r\n' + vNode.suffix;
         await msg.$send(`[CQ:at,qq=${sender}]\r\n${res}`);
-        fs.unlink(vNode.picturePath, () => { });
+        setTimeout(() => {
+            fs.unlink(vNode.picturePath, () => { });
+        }, 10000);
     }
 
     private handleNumber(msg: Meta<'message'>) {
@@ -91,7 +93,7 @@ export class MoeWiki {
         let content = $('.mw-parser-output');
         content = content[1] ? content[1] : content[0];
 
-        const catalog: string[] = this.buildCatalog($);
+        const catalog: string[] = this.buildCatalog(content);
 
         const catalogString: string = this.buildCatalogString(catalog);
 
@@ -132,9 +134,11 @@ export class MoeWiki {
         response.data.pipe(fs.createWriteStream(savePath));
         await new Promise((res) => {
             response.data.on('end', () => {
+                console.log('request image end');
                 res();
             });
-            response.data.on('error', () => {
+            response.data.on('error', (err) => {
+                console.log(err);
                 res();
             });
         });
@@ -172,20 +176,27 @@ export class MoeWiki {
         return sections;
     }
 
-    private buildCatalog($: any) {
+    private buildCatalog(content: any) {
         const catalog = [];
-        const dirHtml = $('#toc .toclevel-1 > a');
-        const dirHtmlArray = dirHtml[0] ? Object.values(dirHtml) : [dirHtml];
-        dirHtmlArray.forEach((item: any) => {
-            if (item?.attribs?.href) catalog.push(item.attribs.href.slice(1));
-        });
+        // const dirHtml = $('#toc .toclevel-1 > a');
+        // const dirHtmlArray = dirHtml[0] ? Object.values(dirHtml) : [dirHtml];
+        // dirHtmlArray.forEach((item: any) => {
+        //     if (item?.attribs?.href) catalog.push(item.attribs.href.slice(1));
+        // });
+        const domArray = content.children;
+        for (let i = 0; i < domArray.length; i++) {
+            const item = domArray[i];
+            if (item.name === 'h2') {
+                catalog.push(item.children[1].attribs.id)
+            }
+        }
         return catalog;
     }
 
     private buildCatalogString(catalog: string[]) {
         let catalogInfo = '词条目录：\r\n'
         catalogInfo += catalog.reduce((prev, cur, cin) => {
-            return `${prev}\r\n${cin + 1}：${cur}`;
+            return `${prev}\r\n${cin + 1}. ${cur}`;
         }, '');
         return catalogInfo;
     }
@@ -252,7 +263,7 @@ export class MoeWiki {
         }
         catch (err) {
             console.log(err);
-            // msg.$send('服务器炸了，你猜猜是萌百炸了还是我炸了？')
+            msg.$send('服务器炸了，你猜猜是萌百炸了还是我炸了？')
         }
     }
 

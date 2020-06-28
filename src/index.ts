@@ -1,6 +1,7 @@
 import { App } from 'koishi';
 import { FarmNotifier } from './receiver/FarmNotifier';
-import { Roll } from './receiver/Roll';
+import { MiniGame } from './receiver/MiniGame';
+import { MoeWiki } from './receiver/MoeWiki';
 
 const config = {
     type: "http",
@@ -20,7 +21,8 @@ const app = new App(config as any);
 app.start()
 
 new FarmNotifier(app);
-new Roll(app);
+new MiniGame(app);
+new MoeWiki(app);
 
 console.log('Koishi is started');
 console.log(`port: ${config.port}`);

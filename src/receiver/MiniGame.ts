@@ -1,6 +1,6 @@
 import { App, Meta } from 'koishi';
 
-export class Roll {
+export class MiniGame {
     app: App;
 
     constructor(app: App) {
@@ -33,15 +33,44 @@ export class Roll {
 
     private group(msg: Meta<'message'>) {
         const text = msg.rawMessage;
-        const value = text.match(/\d+/);
+        const members = text.match(/\d+/g);
 
-        let res;
+        if (members.length === 0) {
+            msg.$send(`[CQ:at,qq=${msg.sender.userId}] 诶？人呢？人呢？人呢？`);
+            return;
+        }
+        if (members.length === 1) {
+            msg.$send(`[CQ:at,qq=${msg.sender.userId}] 孤独风中一匹狼 还分个jio分`)
+            return;
+        }
 
-        msg.$send(`[CQ:at,qq=${msg.sender.userId}] ${res}`)
+        const group1 = [];
+        let group2 = [];
+
+        const length = Math.ceil(members.length / 2);
+        for (let i = 0; i < length; i++) {
+            const member = members.splice(Math.floor(Math.random() * members.length), 1)[0];
+            group1.push(member);
+        }
+        group2 = [...members];
+
+        let res = '';
+
+        res += 'A组：';
+        group1.forEach(member => {
+            res += `[CQ:at,qq=${member}] `;
+        });
+
+        res += '\r\nB组：';
+        group2.forEach(member => {
+            res += `[CQ:at,qq=${member}] `;
+        });
+
+        msg.$send(`${res}`);
     }
 
     private coin(msg: Meta<'message'>) {
-        msg.$send(`CQ:at,qq=${msg.sender.userId} ${Math.random() < 0.5 ? '正面' : '反面'}`)
+        msg.$send(`[CQ:at,qq=${msg.sender.userId}] ${Math.random() < 0.5 ? '正面' : '反面'}`)
     }
 
     private fingerGussing(msg: Meta<'message'>) {

@@ -1,6 +1,5 @@
 import { App, Meta } from "koishi";
 import axios from 'axios';
-import { isObject } from "util";
 
 export class MoeWiki {
 
@@ -47,7 +46,7 @@ export class MoeWiki {
         const now = Date.now();
         if (now - requestTime > 300 * 1000) return;
 
-        const index = msg.rawMessage;
+        const index = Number(msg.rawMessage);
         const section = vNode.section[index];
         msg.$send(`[CQ:at,qq=${sender}]\r\n${section}`);
     }
@@ -60,7 +59,7 @@ export class MoeWiki {
         const catalogString: string = this.buildCatalogString(catalog);
         const introduction: string = this.buildIntroduction($, content);
         const suffix = '5分钟内，输入词条目录的编号可获取词条内容';
-        const section = this.buildSection(content, catalog);
+        const section = this.buildSection(content);
 
         return {
             catalog: catalogString,
@@ -75,22 +74,22 @@ export class MoeWiki {
         this.userData[sender] = { requestTime: Date.now(), vNode: vNode }
     }
 
-    private buildSection(content: any, catalog: string[]) {
+    private buildSection(content: any) {
         const domArray = content.children;
         const sections = [];
-        let flags = '';
         let counter = 0;
         for (let i = 0; i < domArray.length; i++) {
             const item = domArray[i];
             if (item.name === 'h2') {
                 counter++;
-                const title = item.children[1]?.children[0]?.data;
-                flags = title;
                 sections[counter] = '';
+            }
+            else if (item.counter === 0) {
+                continue;
             }
             else {
                 const text = this.recursedTag(item);
-                sections[counter] += text;
+                if (text) sections[counter] += text;
             }
         }
 
@@ -137,11 +136,12 @@ export class MoeWiki {
         if (!paraArray) return;
         paraArray.forEach(para => {
             if (['style', 'script'].includes(para.type)) return;
-            if (para.data) intro += para.data;
-            if (para.children) {
-                intro += this.recursedTag(para);
+            if (para.data && para.data !== '\\n') {
+                intro += String(para.data);
             }
-
+            if (para.children) {
+                intro += String(this.recursedTag(para));
+            }
         });
         return intro;
     }

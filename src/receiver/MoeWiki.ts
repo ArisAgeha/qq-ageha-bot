@@ -1,5 +1,8 @@
 import { App, Meta } from "koishi";
 import axios from 'axios';
+import { resolve } from "path";
+const fs = require('fs');
+const path = require('path');
 
 export class MoeWiki {
 
@@ -18,9 +21,12 @@ export class MoeWiki {
         this.app.group(435649543).receiver.on('message', (msg) => {
             const text = msg.rawMessage;
 
-            this.prefixs.forEach(word => {
-                if (text.toLowerCase().startsWith(word + ' ')) this.startSearch(msg);
-            });
+            for (const word of this.prefixs) {
+                if (text.toLowerCase().startsWith(word)) {
+                    this.startSearch(msg);
+                    break;
+                }
+            }
 
             if (/^\d+$/.test(text)) this.getSection(msg);
         })
@@ -31,11 +37,13 @@ export class MoeWiki {
         const word = this.getWord(msg.rawMessage);
         const $ = await this.fetchHtml(word, msg);
         if (!$) return;
-        const vNode = this.buildVNode($);
+        const vNode = await this.buildVNode($);
         this.saveVNode(msg, vNode);
+        const pictureCq = `[CQ:image,file=${vNode.pictureFilename}]`
 
-        const res = vNode.introduction + '\r\n' + vNode.catalog + '\r\n' + vNode.suffix;
-        msg.$send(`[CQ:at,qq=${sender}]\r\n${res}`);
+        const res = vNode.introduction + pictureCq + vNode.catalog + '\r\n' + vNode.suffix;
+        await msg.$send(`[CQ:at,qq=${sender}]\r\n${res}`);
+        fs.unlink(vNode.picturePath, () => {});
     }
 
     private getSection(msg: Meta<'message'>) {
@@ -51,13 +59,19 @@ export class MoeWiki {
         msg.$send(`[CQ:at,qq=${sender}]\r\n${section}`);
     }
 
-    private buildVNode($: any): VNode {
+    private async buildVNode($: any): Promise<VNode> {
         let content = $('.mw-parser-output');
         content = content[1] ? content[1] : content[0];
 
         const catalog: string[] = this.buildCatalog($);
+
         const catalogString: string = this.buildCatalogString(catalog);
+
         const introduction: string = this.buildIntroduction($, content);
+
+        const pictureSrc: string = this.getPreview($);
+        const picture = await this.downloadPicture(pictureSrc);
+
         const suffix = '5分钟内，输入词条目录的编号可获取词条内容';
         const section = this.buildSection(content);
 
@@ -65,7 +79,42 @@ export class MoeWiki {
             catalog: catalogString,
             introduction,
             suffix,
-            section
+            section,
+            pictureFilename: picture.filename,
+            picturePath: picture.picturePath
+        }
+    }
+
+    private getPreview($: any) {
+        const imgs = $('table img');
+        const src = imgs[0]?.attribs?.src;
+        console.log(imgs[0].attribs.src);
+        return src;
+    }
+
+    async downloadPicture(src: string) {
+        const response = await axios({
+            method: 'GET',
+            url: src,
+            responseType: 'stream'
+        })
+
+        const rd = String(Math.ceil(Math.random() * 10000000));
+        const savePath = path.resolve(`I:\\酷Q Pro\\data\\image\\${rd}`);
+
+        response.data.pipe(fs.createWriteStream(savePath));
+        await new Promise((res) => {
+            response.data.on('end', () => {
+                res();
+            });
+            response.data.on('error', () => {
+                res();
+            });
+        });
+
+        return {
+            filename: rd,
+            picturePath: savePath
         }
     }
 
@@ -181,5 +230,7 @@ type VNode = {
     catalog: string;
     introduction: string;
     suffix: string;
-    section: string[]
+    section: string[];
+    pictureFilename: string;
+    picturePath: string;
 }

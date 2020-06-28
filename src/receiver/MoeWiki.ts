@@ -1,6 +1,6 @@
-import { App, Meta } from "koishi";
+import { App, Meta } from 'koishi';
 import axios from 'axios';
-import { resolve } from "path";
+import { isArray } from 'util';
 const fs = require('fs');
 const path = require('path');
 
@@ -8,7 +8,9 @@ export class MoeWiki {
 
     app: App;
     prefixs = ['moe', 'moe ', '萌百', '萌百 '];
+    searchPrefixs = ['moes', 'moes ', '萌百搜索', '萌百搜索 '];
     userData = {};
+    searchData = {};
 
     constructor(app: App) {
         this.app = app;
@@ -21,14 +23,21 @@ export class MoeWiki {
         this.app.group(435649543).receiver.on('message', (msg) => {
             const text = msg.rawMessage;
 
-            for (const word of this.prefixs) {
+            for (const word of this.searchPrefixs) {
                 if (text.toLowerCase().startsWith(word)) {
-                    this.startSearch(msg);
-                    break;
+                    this.redirectToSearchPage(msg);
+                    return;
                 }
             }
 
-            if (/^\d+$/.test(text)) this.getSection(msg);
+            for (const word of this.prefixs) {
+                if (text.toLowerCase().startsWith(word)) {
+                    this.startSearch(msg);
+                    return;
+                }
+            }
+
+            if (/^\d+$/.test(text)) this.handleNumber(msg);
         })
     }
 
@@ -41,18 +50,37 @@ export class MoeWiki {
         this.saveVNode(msg, vNode);
         const pictureCq = `[CQ:image,file=${vNode.pictureFilename}]`
 
-        const res = vNode.introduction + pictureCq + vNode.catalog + '\r\n' + vNode.suffix;
+        const res = vNode.introduction + pictureCq + '\r\n' + vNode.catalog + '\r\n' + vNode.suffix;
         await msg.$send(`[CQ:at,qq=${sender}]\r\n${res}`);
-        fs.unlink(vNode.picturePath, () => {});
+        fs.unlink(vNode.picturePath, () => { });
+    }
+
+    private handleNumber(msg: Meta<'message'>) {
+        const sender = msg.sender.userId;
+        const userData = this.userData[sender];
+
+        if (!userData) return;
+        if (userData.vNode) {
+            const now = Date.now();
+            if (now - userData.requestTime > 30 * 1000) return;
+            const index = Number(msg.rawMessage);
+            if (index > userData.vNode.section.length) return;
+            this.getSection(msg);
+        }
+        else if (userData.pageTitle) {
+            const now = Date.now();
+            if (now - userData.requestTime > 15 * 1000) return;
+            const index = Number(msg.rawMessage);
+            if (index > userData.pageTitle.length) return;
+            msg.rawMessage = `moe ${userData.pageTitle[index - 1]}`
+            this.startSearch(msg);
+        }
     }
 
     private getSection(msg: Meta<'message'>) {
         const sender = msg.sender.userId;
-        if (!this.userData[sender]) return;
 
-        const { vNode, requestTime } = this.userData[sender];
-        const now = Date.now();
-        if (now - requestTime > 300 * 1000) return;
+        const { vNode } = this.userData[sender];
 
         const index = Number(msg.rawMessage);
         const section = vNode.section[index];
@@ -72,7 +100,7 @@ export class MoeWiki {
         const pictureSrc: string = this.getPreview($);
         const picture = await this.downloadPicture(pictureSrc);
 
-        const suffix = '5分钟内，输入词条目录的编号可获取词条内容';
+        const suffix = '【30秒内，输入词条目录的编号可获取词条内容】';
         const section = this.buildSection(content);
 
         return {
@@ -88,7 +116,6 @@ export class MoeWiki {
     private getPreview($: any) {
         const imgs = $('table img');
         const src = imgs[0]?.attribs?.src;
-        console.log(imgs[0].attribs.src);
         return src;
     }
 
@@ -206,9 +233,57 @@ export class MoeWiki {
             return $;
         }
         catch (err) {
+            if (err.response.status === 404) {
+                this.redirectToSearchPage(msg);
+            }
+        }
+    }
+
+    private async redirectToSearchPage(msg: Meta<'message'>) {
+        let res;
+        try {
+            const word = this.getWord(msg.rawMessage);
+            res = await axios.get(encodeURI(`https://zh.moegirl.org/index.php?title=Special:搜索&limit=20&offset=20&profile=default&search=${word}`));
+            console.log('redirect success');
+            const html = res.data;
+            const cheerio = require('cheerio');
+            const $ = cheerio.load(html);
+            this.parseSearchPage($, msg);
+        }
+        catch (err) {
             console.log(err);
+            // msg.$send('服务器炸了，你猜猜是萌百炸了还是我炸了？')
+        }
+    }
+
+    private parseSearchPage($: any, msg: Meta<'message'>) {
+        const sender = msg.sender.userId;
+        const contents = $('.mw-search-result-heading > a');
+        let contentsArray = isArray(contents) ? contents : Object.values(contents);
+        contentsArray = contentsArray.slice(0, 20);
+        if (contents.length === 0) {
+            msg.$send('Moe上啥都没 Σ(⊙▽⊙"a');
+            return;
         }
 
+        const titles = contentsArray.map(item => {
+            return item.attribs?.title;
+        });
+
+        const searchRes = titles.reduce((prev, cur, cin) => {
+            return `${prev}\r\n${cin + 1}. ${cur}`;
+        }, '');
+
+        this.userData[sender] = {
+            requestTime: Date.now(),
+            pageTitle: titles
+        }
+
+        const prefix = '已搜索到下列条目：';
+        const suffix = '【15秒内，输入编号可以查看条目】';
+
+        const res = prefix + '\r\n' + searchRes + '\r\n' + suffix;
+        msg.$send(`[CQ:at,qq=${msg.sender.userId}]\r\n${res}`);
     }
 
     private getWord = (text: string) => {

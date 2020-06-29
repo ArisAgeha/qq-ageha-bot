@@ -17,7 +17,7 @@ export class MoeWiki {
         this.initMoeWiki();
     }
 
-    private initMoeWiki() {
+    private async initMoeWiki() {
         const app = this.app;
 
         this.app.group(435649543).receiver.on('message', (msg) => {
@@ -64,14 +64,14 @@ export class MoeWiki {
         if (!userData) return;
         if (userData.vNode) {
             const now = Date.now();
-            if (now - userData.requestTime > 30 * 1000) return;
+            if (now - userData.requestTime > 120 * 1000) return;
             const index = Number(msg.rawMessage);
             if (index > userData.vNode.section.length) return;
             this.getSection(msg);
         }
         else if (userData.pageTitle) {
             const now = Date.now();
-            if (now - userData.requestTime > 15 * 1000) return;
+            if (now - userData.requestTime > 30 * 1000) return;
             const index = Number(msg.rawMessage);
             if (index > userData.pageTitle.length) return;
             msg.rawMessage = `moe ${userData.pageTitle[index - 1]}`
@@ -102,7 +102,7 @@ export class MoeWiki {
         const pictureSrc: string = this.getPreview($);
         const picture = await this.downloadPicture(pictureSrc);
 
-        const suffix = '【30秒内，输入词条目录的编号可获取词条内容】';
+        const suffix = '【2分钟内，输入词条目录的编号可获取词条内容】';
         const section = this.buildSection(content);
 
         return {
@@ -291,7 +291,7 @@ export class MoeWiki {
         }
 
         const prefix = '已搜索到下列条目：';
-        const suffix = '【15秒内，输入编号可以查看条目】';
+        const suffix = '【30秒内，输入编号可以查看条目】';
 
         const res = prefix + '\r\n' + searchRes + '\r\n' + suffix;
         msg.$send(`[CQ:at,qq=${msg.sender.userId}]\r\n${res}`);

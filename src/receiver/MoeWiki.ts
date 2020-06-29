@@ -1,4 +1,4 @@
-import { App, Meta } from 'koishi';
+import { App, Meta, Sender } from 'koishi';
 import axios from 'axios';
 import { isArray } from 'util';
 const fs = require('fs');
@@ -11,6 +11,7 @@ export class MoeWiki {
     searchPrefixs = ['moes', 'moes ', '萌百搜索', '萌百搜索 '];
     userData = {};
     searchData = {};
+    pictureMaps = {};
 
     constructor(app: App) {
         this.app = app;
@@ -79,14 +80,57 @@ export class MoeWiki {
         }
     }
 
-    private getSection(msg: Meta<'message'>) {
-        const sender = msg.sender.userId;
+    private async getSection(msg: Meta<'message'>) {
+        const sd = msg.sender.userId;
+        const groupId = msg.groupId;
 
-        const { vNode } = this.userData[sender];
+        const { vNode } = this.userData[sd];
 
         const index = Number(msg.rawMessage);
-        const section = vNode.section[index];
-        msg.$send(`[CQ:at,qq=${sender}]\r\n${section}`);
+        let section = vNode.section[index];
+
+        const newSection = await this.getPictures(section);
+        if (newSection) section = newSection;
+
+        const sender = new Sender(this.app);
+        for (let i = 0; i < Math.ceil(section.length / 3000); i++) {
+            const startIndex = i * 3000;
+            const endIndex = (i + 1) * 3000;
+            // await msg.$send(`${section.slice(startIndex, endIndex)}`);
+            await sender.sendGroupMsg(groupId, `${section.slice(startIndex, endIndex)}`);
+            await this.wait(300);
+        }
+        const images = section.match(/\[CQ:image,file=\d+\]/g);
+        await msg.$send(`[CQ:at,qq=${sd}]`);
+    }
+
+    private async wait(time) {
+        return new Promise((res) => {
+            setTimeout(() => {
+                res();
+            }, time);
+        })
+    }
+
+    private async getPictures(section) {
+        const images = section.match(/\[CQ:image,file=\d+\]/g);
+        if (!images) return;
+        await Promise.all(
+            images.map(async imageCq => {
+                const rd = imageCq.match(/\d+/)[0];
+                const src = this.pictureMaps[rd];
+                const { filename, picturePath } = await this.downloadPicture(src);
+
+                setTimeout(() => {
+                    if (fs.existsSync(picturePath)) {
+                        fs.unlink(picturePath, () => { })
+                    };
+                }, 60 * 1000);
+
+                section = section.replace(rd, filename);
+            })
+        );
+        return section;
     }
 
     private async buildVNode($: any): Promise<VNode> {
@@ -168,7 +212,7 @@ export class MoeWiki {
                 continue;
             }
             else {
-                const text = this.recursedTag(item);
+                const text = this.recursedTag(item, true);
                 if (text) sections[counter] += text;
             }
         }
@@ -187,7 +231,6 @@ export class MoeWiki {
         for (let i = 0; i < domArray.length; i++) {
             const item = domArray[i];
             if (item.name === 'h2') {
-                console.log(item.children[1].attribs.id);
                 catalog.push(item.children[1].attribs.id)
             }
         }
@@ -208,7 +251,7 @@ export class MoeWiki {
             const item = content.children[i];
             if (item.name === 'p') {
                 if (item.children) {
-                    const text: string = this.recursedTag(item);
+                    const text: string = this.recursedTag(item, false);
                     if (text) introduction += text;
                 }
             }
@@ -218,7 +261,7 @@ export class MoeWiki {
         return introduction;
     }
 
-    private recursedTag(item: any): string {
+    private recursedTag(item: any, shouldGetImg: boolean): string {
         let intro = '';
         const paraArray = item.children;
         if (!paraArray) return;
@@ -227,11 +270,17 @@ export class MoeWiki {
             // if (para.name === 'li') {
             //     console.log(para);
             // }
+            if (para.name === 'img' && shouldGetImg) {
+                const imgSrc = para.attribs.src;
+                const rd = Math.ceil(Math.random() * 100000000);
+                this.pictureMaps[rd] = imgSrc;
+                intro += `[CQ:image,file=${rd}]`;
+            }
             if (para.data && para.data !== '\\n') {
                 intro += String(para.data);
             }
             if (para.children) {
-                intro += String(this.recursedTag(para));
+                intro += String(this.recursedTag(para, shouldGetImg));
             }
         });
         return intro;

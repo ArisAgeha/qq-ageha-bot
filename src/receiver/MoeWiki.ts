@@ -187,6 +187,7 @@ export class MoeWiki {
         for (let i = 0; i < domArray.length; i++) {
             const item = domArray[i];
             if (item.name === 'h2') {
+                console.log(item.children[1].attribs.id);
                 catalog.push(item.children[1].attribs.id)
             }
         }
@@ -223,6 +224,9 @@ export class MoeWiki {
         if (!paraArray) return;
         paraArray.forEach(para => {
             if (['style', 'script'].includes(para.type)) return;
+            // if (para.name === 'li') {
+            //     console.log(para);
+            // }
             if (para.data && para.data !== '\\n') {
                 intro += String(para.data);
             }
@@ -279,7 +283,7 @@ export class MoeWiki {
 
         const titles = contentsArray.map(item => {
             return item.attribs?.title;
-        });
+        }).filter(item => item);
 
         const searchRes = titles.reduce((prev, cur, cin) => {
             return `${prev}\r\n${cin + 1}. ${cur}`;

@@ -24,7 +24,7 @@ app.start()
 new FarmNotifier(app);
 new MiniGame(app);
 new MoeWiki(app);
-// new Konachan(app);
+new Konachan(app);
 
 console.log('Koishi is started');
 console.log(`port: ${config.port}`);

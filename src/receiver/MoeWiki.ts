@@ -222,11 +222,6 @@ export class MoeWiki {
 
     private buildCatalog(content: any) {
         const catalog = [];
-        // const dirHtml = $('#toc .toclevel-1 > a');
-        // const dirHtmlArray = dirHtml[0] ? Object.values(dirHtml) : [dirHtml];
-        // dirHtmlArray.forEach((item: any) => {
-        //     if (item?.attribs?.href) catalog.push(item.attribs.href.slice(1));
-        // });
         const domArray = content.children;
         for (let i = 0; i < domArray.length; i++) {
             const item = domArray[i];
@@ -267,9 +262,7 @@ export class MoeWiki {
         if (!paraArray) return;
         paraArray.forEach(para => {
             if (['style', 'script'].includes(para.type)) return;
-            // if (para.name === 'li') {
-            //     console.log(para);
-            // }
+            if (para.name === 'table') return;
             if (para.name === 'img' && shouldGetImg) {
                 const imgSrc = para.attribs.src;
                 const rd = Math.ceil(Math.random() * 100000000);

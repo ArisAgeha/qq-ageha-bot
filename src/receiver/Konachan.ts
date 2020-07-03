@@ -73,7 +73,7 @@ export class Konachan {
                 }, 10000);
             });
 
-            response.data.on('error', (err) => {
+            response.data.on('error', (err: Error) => {
                 console.log(err);
             });
         }

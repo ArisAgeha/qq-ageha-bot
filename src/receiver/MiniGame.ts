@@ -74,7 +74,7 @@ export class MiniGame {
     }
 
     private fingerGussing(msg: Meta<'message'>) {
-        const winMaps = {
+        const winMaps: any = {
             '布': '石头',
             '石头': '剪刀',
             '剪刀': '布'

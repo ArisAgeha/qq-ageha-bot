@@ -1,6 +1,7 @@
 import { App, Meta } from 'koishi';
 import datastore from '../nedb/Nedb';
 import { convertCompilerOptionsFromJson, createTextChangeRange } from 'typescript';
+import { format } from 'path';
 const dayjs = require('dayjs');
 
 export class FarmNotifier {
@@ -18,6 +19,8 @@ export class FarmNotifier {
             const text = msg.rawMessage;
 
             if (text === 'farm') this.setFarmDate(msg);
+            if (text === 'show clock') this.showClock(msg);
+            if (text === 'show all clock') this.showAllClock(msg);
             if (/^yc \d+[.\d*]*(ms|s|sec|secs|second|seconds|h|hour|hours|m|min|mins)/.test(text)) this.delayNotify(msg);
             if (/^\[CQ:at,qq=2622692056\] cancel/.test(text)) this.cancelNotify(msg);
         })
@@ -27,6 +30,70 @@ export class FarmNotifier {
 
 
     // business function
+    private async showClock(msg: Meta<'message'>) {
+        const qqId = msg.sender.userId;
+        const groupId = msg.groupId;
+
+        const clocks = await datastore.find({ qqId, groupId });
+        if (clocks.length === 0) {
+            msg.$send(`[CQ:at,qq=${qqId}] 您还未调闹钟`);
+            return;
+        }
+        else {
+            const prefix = `[CQ:at,qq=${qqId}]\r\n`
+            const content = clocks
+                .sort((a, b) => {
+                    return a.notifyDate - b.notifyDate
+                })
+                .map((item, index) => {
+                    const formatDate = dayjs(item.notifyDate).format('YYYY-MM-DD HH:mm:ss');
+                    return `[${index}] ${item.desc ? item.desc : '默认闹钟'}: ${formatDate} \r\n`;
+                })
+                .reduce((prev, cur) => {
+                    return prev + cur;
+                }, '');
+            const res = prefix + content;
+            msg.$send(res);
+        }
+    }
+
+    private async showAllClock(msg: Meta<'message'>) {
+        const qqId = msg.sender.userId;
+        const groupId = msg.groupId;
+
+        const clocks = await datastore.find({ groupId });
+        if (clocks.length === 0) {
+            msg.$send(`[CQ:at,qq=${qqId}] 群内未设置闹钟`);
+            return;
+        }
+        else {
+            let curId = -1;
+            let curIndex = 1;
+            const content = clocks
+                .sort((a, b) => {
+                    return a.notifyDate - b.notifyDate
+                })
+                .map((item, index) => {
+                    let text = '';
+                    if (item.qqId !== curId) {
+                        curId = item.qqId;
+                        curIndex = 1;
+                        text += `======= [CQ:at,qq=${item.qqId}] =======\r\n`;
+                    }
+
+                    const formatDate = dayjs(item.notifyDate).format('YYYY-MM-DD HH:mm:ss');
+                    text += `[${curIndex}] ${item.desc ? item.desc : '默认闹钟'}: ${formatDate} \r\n`;
+
+                    return text;
+                })
+                .reduce((prev, cur) => {
+                    return prev + cur;
+                }, '');
+            const res = content;
+            msg.$send(res);
+        }
+    }
+
     private async cancelNotify(msg: Meta<'message'>) {
         const qqId = msg.sender.userId;
         const groupId = msg.groupId;
@@ -39,17 +106,14 @@ export class FarmNotifier {
     }
 
     private async checkNotify() {
-        console.log(await datastore.find({}).exec());
         setInterval(async () => {
             const now = Number(Date.now());
             const data = await datastore.find({}).exec();
             if (!data) return;
-            console.log(data);
 
             data.forEach((item: NotifyData) => {
                 if (item.notifyDate <= now && !item.isNotified) {
                     this.app.sender.sendGroupMsg(item.groupId, `[CQ:at,qq=${item.qqId}] \r\n够钟${item.desc}辣！`)
-                    console.log('should remove:' + item.desc);
                     datastore.remove({ qqId: item.qqId, groupId: item.groupId, desc: item.desc });
                     // datastore.update(
                     //     { qqId: item.qqId, groupId: item.groupId, desc: item.desc },
@@ -78,8 +142,6 @@ export class FarmNotifier {
         const delayTimeValue = delayTimeValueMatch ? Number(delayTimeValueMatch[0]) : 0;
 
         const notifyItem: NotifyData = await datastore.findOne({ qqId, groupId, desc });
-        console.log(delayTimeValueMatch);
-        console.log(delayTimeValue);
 
         let notifyDate;
         if (notifyItem && !notifyItem.isNotified) {

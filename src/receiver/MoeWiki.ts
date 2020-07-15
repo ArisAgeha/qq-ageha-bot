@@ -49,7 +49,7 @@ export class MoeWiki {
         if (!$) return;
         const vNode = await this.buildVNode($);
         this.saveVNode(msg, vNode);
-        const pictureCq = `[CQ:image,file=${vNode.pictureFilename}]`
+        const pictureCq = `[CQ:image,file=${vNode.pictureFilename}]`;
 
         const res = vNode.introduction + pictureCq + '\r\n' + vNode.catalog + '\r\n' + vNode.suffix;
         await msg.$send(`[CQ:at,qq=${sender}]\r\n${res}`);

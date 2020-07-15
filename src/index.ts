@@ -5,6 +5,7 @@ import { MoeWiki } from './receiver/MoeWiki';
 import { Konachan } from './receiver/Konachan';
 import { Chess } from './receiver/Chess';
 import { PokeWiki } from './receiver/PokeWiki';
+import { Screenshots } from './receiver/Screenshots';
 
 const config = {
     type: "http",
@@ -29,6 +30,7 @@ new MoeWiki(app);
 new Konachan(app);
 new Chess(app);
 new PokeWiki(app);
+new Screenshots(app);
 
 console.log('Koishi is started');
 console.log(`port: ${config.port}`);

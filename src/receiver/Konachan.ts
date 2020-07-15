@@ -2,6 +2,7 @@ import { App, Meta } from 'koishi';
 import axios from 'axios';
 import { isArray } from 'util';
 import { match } from 'assert';
+import { isConstructorTypeNode } from 'typescript';
 const fs = require('fs');
 const path = require('path');
 
@@ -36,6 +37,9 @@ export class Konachan {
         const rdPage = await axios.get('https://konachan.net/post/random');
         const matchSrc = JSON.stringify(rdPage.data)?.match(/https\:\/\/konachan.net\/post\/show\/\d+/);
         const redirectPageSrc = matchSrc ? matchSrc[0] : null;
+        if (!redirectPageSrc) return;
+        
+        const number = Number(redirectPageSrc.match(/\d+/)[0]);
 
         // get redirect page (image page)
         const targetPage = await axios.get(redirectPageSrc);

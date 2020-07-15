@@ -11,6 +11,7 @@
     "author": "",
     "description": "",
     "devDependencies": {
+        "@types/puppeteer": "^3.0.1",
         "koishi": "^1.12.0",
         "ts-node": "^8.10.2",
         "typescript": "^3.9.5"
@@ -20,7 +21,9 @@
         "axios": "^0.19.2",
         "cheerio": "^1.0.0-rc.3",
         "dayjs": "^1.8.28",
+        "gm": "^1.23.1",
         "koishi-database-mysql": "^1.2.0",
-        "nedb-promises": "^4.0.3"
+        "nedb-promises": "^4.0.3",
+        "puppeteer": "^5.1.0"
     }
 }

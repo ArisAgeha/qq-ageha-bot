@@ -1,7 +1,7 @@
 import { App, Meta } from 'koishi';
-import datastore from '../nedb/Nedb';
 import { convertCompilerOptionsFromJson, createTextChangeRange } from 'typescript';
 import { format } from 'path';
+import { datastore } from '../nedb/Nedb';
 const dayjs = require('dayjs');
 
 export class FarmNotifier {

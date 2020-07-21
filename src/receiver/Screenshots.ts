@@ -3,48 +3,143 @@ import fs = require('fs');
 import path = require('path');
 import puppeteer = require('puppeteer');
 import { sleep } from '../utils/tools';
+import { screenshotStore } from '../nedb/Nedb';
+import { idText } from 'typescript';
+import { isUndefined } from '../utils/types';
 const gm = require('gm');
 
 export class Screenshots {
 
     app: App;
-    prefixs = ['ss '];
+    prefix = 'ss';
+    setPrefixs = ['-set', '-s'];
+    removePrefixs = ['-remove', '-r'];
+    listPrefixs = ['-list', '-l'];
+    helpPrefixs = ['-help', '-h'];
 
     constructor(app: App) {
         this.app = app;
-        this.initPokeWiki();
+        this.initScreenshots();
     }
 
-    private async initPokeWiki() {
+    private async initScreenshots() {
         const app = this.app;
 
         this.app.receiver.on('message', (msg) => {
             const text = msg.rawMessage;
 
-            for (const word of this.prefixs) {
-                if (text.toLowerCase().startsWith(word)) {
-                    this.getScreenshots(msg);
-                    return;
-                }
+            if (text.toLowerCase().startsWith(this.prefix)) {
+                const prefix = msg.rawMessage.split(' ')[1];
+                if (this.setPrefixs.includes(prefix)) this.setAlias(msg);
+                else if (this.removePrefixs.includes(prefix)) this.removeAlias(msg);
+                else if (this.listPrefixs.includes(prefix)) this.listAlias(msg);
+                else this.getScreenshots(msg);
             }
         })
     }
 
+    async setAlias(msg: Meta<'message'>) {
+        const text = msg.rawMessage;
+        const textArray = text.split(' ');
+
+        if (textArray.length !== 4) {
+            msg.$send('参数有误，设置别名的格式为【ss -set [别名] [url]】');
+            msg.$send('如：ss -set 百科 https://baike.baidu.com/item/${val}');
+            return;
+        }
+
+        const id = msg.groupId || msg.userId;
+        const name = textArray[2];
+        const src = textArray[3].startsWith('http') ? textArray[3] : `http://${textArray[3]}`;
+
+        try {
+            await screenshotStore.update(
+                { belong_id: id, name },
+                { belong_id: id, name, src },
+                { upsert: true }
+            )
+            msg.$send('记录别名成功');
+        }
+        catch (err) {
+            console.error(err);
+            msg.$send('写入数据库时出现错误');
+        }
+
+    }
+
+    async removeAlias(msg: Meta<'message'>) {
+        const text = msg.rawMessage;
+        const textArray = text.split(' ');
+
+        if (textArray.length !== 3) {
+            msg.$send('参数有误，设置别名的格式为【ss -remove [别名]】');
+            msg.$send('如：ss -remove 百科');
+            return;
+        }
+
+        const id = msg.groupId || msg.userId;
+        const name = textArray[2];
+
+        try {
+            await screenshotStore.remove(
+                { belong_id: id, name }
+            )
+            msg.$send('删除别名成功');
+        }
+        catch (err) {
+            msg.$send('删除别名失败');
+        }
+    }
+
+    async listAlias(msg: Meta<'message'>) {
+        const id = msg.groupId || msg.userId;
+        const list = await screenshotStore.find({ belong_id: id }).exec();
+        if (list.length > 0) {
+            const res = list.reduce((prev, cur, index) => {
+                return prev + `[${index + 1}] ${cur.name} ${cur.src}\r\n`;
+            }, '');
+            msg.$send(res);
+        }
+        else {
+            msg.$send('未查询到别名设置');
+        }
+    }
+
     private async getScreenshots(msg: Meta<'message'>) {
         try {
+            console.log('====');
             msg.$send('正在连接网页...');
             const text = msg.rawMessage;
-            let src = text.split(' ')[1];
-            console.log(src);
-            if (!src) {
-                msg.$send('请输入网址');
-                return;
+            const textArray = text.split(' ');
+            const { timeout, alias } = this.extractParams(textArray);
+            console.log(timeout, alias);
+
+            let src = '';
+            if (alias) {
+                const id = msg.groupId || msg.userId;
+                const srcModelData = await screenshotStore.find({ belong_id: id, name: alias }).exec();
+                console.log(srcModelData);
+
+                if (srcModelData.length === 0) {
+                    msg.$send('未绑定此别名');
+                    return;
+                }
+
+                const srcModel = srcModelData[0];
+                console.log(srcModel);
+                src = srcModel?.src?.replace('${val}', textArray[1]);
+                console.log(src);
             }
-            if (!src.startsWith('http')) src = `http://${src}`;
+            else {
+                src = textArray[1].startsWith('http') ? textArray[1] : `http://${textArray[1]}`;
+            }
+
+            if (!src) return;
 
             const browser = await puppeteer.launch({});
             const page = await browser.newPage();
             await page.goto(src);
+            await page.waitFor(timeout);
             page.setViewport({
                 width: 1600,
                 height: 900
@@ -52,7 +147,6 @@ export class Screenshots {
 
             msg.$send('网页连接完成，正在加载网页资源...');
             await this.autoScroll(page);
-            console.log('isEnd');
 
             const rd = String(Math.ceil(Math.random() * 10000000));
             const tempPath = path.resolve(`./temp/${rd}.png`);
@@ -133,5 +227,22 @@ export class Screenshots {
                 }, 25);
             });
         })()`);
+    }
+
+    private extractParams(paramsArray: string[]) {
+        let timeout = 0;
+        let alias = '';
+
+        if (paramsArray[0].length > 2) alias = paramsArray[0].slice(2);
+
+        for (let i = 0; i < paramsArray.length; i++) {
+            if (['-t', '-time'].includes(paramsArray[i])) {
+                let timeoutData = Number(paramsArray[i + 1]);
+                if (isNaN(timeoutData) || !timeoutData) continue;
+                else timeout = timeoutData;
+            }
+        }
+
+        return { timeout, alias };
     }
 }

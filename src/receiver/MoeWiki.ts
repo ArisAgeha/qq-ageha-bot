@@ -119,6 +119,7 @@ export class MoeWiki {
             images.map(async imageCq => {
                 const rd = imageCq.match(/\d+/)[0];
                 const src = this.pictureMaps[rd];
+                if (!src) return;
                 const { filename, picturePath } = await this.downloadPicture(src);
 
                 setTimeout(() => {

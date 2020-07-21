@@ -1,4 +1,5 @@
 const Datastore = require('nedb-promises')
-const datastore = Datastore.create('./qqbot-nedb.db')
+const datastore = Datastore.create('./notifier.db')
+const screenshotStore = Datastore.create('./screenshots-alias.db')
 
-export default datastore;
+export { datastore, screenshotStore };

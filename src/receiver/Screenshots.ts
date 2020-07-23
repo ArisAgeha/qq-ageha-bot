@@ -127,18 +127,15 @@ export class Screenshots {
 
     private async getScreenshots(msg: Meta<'message'>) {
         try {
-            console.log('====');
             msg.$send('正在连接网页...');
             const text = msg.rawMessage;
             const textArray = text.split(' ');
             const { timeout, alias } = this.extractParams(textArray);
-            console.log(timeout, alias);
 
             let src = '';
             if (alias) {
                 const id = msg.groupId || msg.userId;
                 const srcModelData = await screenshotStore.find({ belong_id: id, name: alias }).exec();
-                console.log(srcModelData);
 
                 if (srcModelData.length === 0) {
                     msg.$send('未绑定此别名');
@@ -146,9 +143,7 @@ export class Screenshots {
                 }
 
                 const srcModel = srcModelData[0];
-                console.log(srcModel);
                 src = srcModel?.src?.replace('${val}', textArray[1]);
-                console.log(src);
             }
             else {
                 src = textArray[1].startsWith('http') ? textArray[1] : `http://${textArray[1]}`;

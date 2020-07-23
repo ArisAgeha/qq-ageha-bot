@@ -7,6 +7,8 @@ import { Chess } from './receiver/Chess';
 import { PokeWiki } from './receiver/PokeWiki';
 import { Screenshots } from './receiver/Screenshots';
 
+const groupShouldNotice = [435649543];
+
 const config = {
     type: "http",
     port: 8089,
@@ -31,6 +33,10 @@ new Konachan(app);
 new Chess(app);
 new PokeWiki(app);
 new Screenshots(app);
+
+groupShouldNotice.forEach((groupId) => {
+    app.sender.sendGroupMsg(groupId, '服务器已重新启动...'); 
+})
 
 console.log('Koishi is started');
 console.log(`port: ${config.port}`);

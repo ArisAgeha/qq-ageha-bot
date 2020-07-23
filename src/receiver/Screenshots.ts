@@ -1,8 +1,8 @@
-import { App, Meta, Sender } from 'koishi';
+import { App, Meta, Sender, messages } from 'koishi';
 import fs = require('fs');
 import path = require('path');
 import puppeteer = require('puppeteer');
-import { sleep } from '../utils/tools';
+import { sleep, TextHelper } from '../utils/tools';
 import { screenshotStore } from '../nedb/Nedb';
 import { idText } from 'typescript';
 import { isUndefined } from '../utils/types';
@@ -33,9 +33,29 @@ export class Screenshots {
                 if (this.setPrefixs.includes(prefix)) this.setAlias(msg);
                 else if (this.removePrefixs.includes(prefix)) this.removeAlias(msg);
                 else if (this.listPrefixs.includes(prefix)) this.listAlias(msg);
+                else if (this.helpPrefixs.includes(prefix)) this.sendHelp(msg);
                 else this.getScreenshots(msg);
             }
         })
+    }
+
+    sendHelp(msg: Meta<'message'>) {
+        const textHelper = new TextHelper();
+        textHelper.append('· 截图器使用方式');
+        textHelper.append('[1] 基础使用方式：【ss 任意url】');
+        textHelper.append('[2] 绑定别名使用方式：【ss[已绑定的别名] 关键词】');
+        textHelper.append('');
+        textHelper.append('· 设置别名方法：【ss -set 别名 url】');
+        textHelper.append('如： ss -set 百科 http://baike.baidu.com/item/${val}');
+        textHelper.append('此时，以[2]方法使用时，关键词 会自动替代url中的${val}模板');
+        textHelper.append('如ss百科 测试，则会自动截图【http://baike.baidu.com/item/测试】网页的内容');
+        textHelper.append('');
+        textHelper.append('· 查看已设置的别名列表：【ss -l】 或 【ss -list】');
+        textHelper.append('');
+        textHelper.append('· 移除别名：【ss -r 别名】 或 【ss -remove 别名】');
+
+        const text = textHelper.getText();
+        msg.$send(text);
     }
 
     async setAlias(msg: Meta<'message'>) {

@@ -22,7 +22,7 @@ export class Clock {
             if (text === 'show clock') this.showClock(msg);
             if (text === 'show all clock') this.showAllClock(msg);
             if (/^yc \d+[.\d*]*(ms|s|sec|secs|second|seconds|h|hour|hours|m|min|mins)/.test(text)) this.delayNotify(msg);
-            if (/^\cancel clock/.test(text)) this.cancelClock(msg);
+            if (/^cancel clock/.test(text)) this.cancelClock(msg);
         })
 
         this.checkNotify();
@@ -65,7 +65,7 @@ export class Clock {
         const textArray = msg.rawMessage.split(' ');
         const desc = textArray.length === 3 ? textArray[2] : '';
 
-        this.clockService.cancelClock({ qqId, groupId, desc });
+        await this.clockService.cancelClock({ qqId, groupId, desc });
         msg.$send(`[CQ:at,qq=${qqId}] 已取消提醒${desc}`)
     }
 
@@ -112,7 +112,7 @@ export class Clock {
         const qqId = msg.sender.userId;
         const groupId = msg.groupId || 0;
 
-        const formatDate = this.clockService.setFarmClock({ qqId, groupId });
+        const formatDate = await this.clockService.setFarmClock({ qqId, groupId });
         await msg.$send(`[CQ:at,qq=${qqId}] Mark 下次提醒时间为${formatDate}`);
     }
 }

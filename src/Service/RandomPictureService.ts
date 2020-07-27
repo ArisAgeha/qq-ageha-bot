@@ -1,11 +1,13 @@
 import puppeteer = require('puppeteer');
 import fs = require('fs');
 import path = require('path');
+import { userSettingsStore } from '../nedb/Nedb';
+import { groupFields } from 'koishi';
 
 export class RandomPictureService {
-    async getPicture(keyword) {
+    async getPicture(keyword: string, count: number, size: number) {
         try {
-            const src = `https://image.baidu.com/search/index?tn=baiduimage&ps=1&ct=201326592&lm=-1&cl=2&nc=1&ie=utf-8&word=${keyword}`;
+            const src = `https://image.baidu.com/search/index?z=${size}&tn=baiduimage&ps=1&ct=201326592&lm=-1&cl=2&nc=1&ie=utf-8&word=${keyword}`;
 
             const browser = await puppeteer.launch({});
             const page = await browser.newPage();
@@ -23,28 +25,59 @@ export class RandomPictureService {
             imgs = imgs.filter(img => {
                 return img.startsWith('https');
             });
-            const img = imgs[Math.floor(Math.random() * imgs.length)];
 
-            await page.goto(img);
-            const detailPageEl = await page.$('img');
+            const rds: string[] = [];
 
-            const rd = String(Math.ceil(Math.random() * 10000000));
-            const tempPath = path.resolve(`./temp/${rd}.png`);
-            const savePath = path.resolve(`I:\\酷Q Pro\\data\\image\\${rd}.png`);
+            for (let i = 0; i < count; i++) {
+                const img = imgs.splice(Math.floor(Math.random() * imgs.length), 1)[0];
 
-            await detailPageEl.screenshot({ path: tempPath });
+                await page.goto(img);
+                const detailPageEl = await page.$('img');
 
-            fs.renameSync(tempPath, savePath);
+                const rd = String(Math.ceil(Math.random() * 10000000));
+                const tempPath = path.resolve(`./temp/${rd}.png`);
+                const savePath = path.resolve(`I:\\酷Q Pro\\data\\image\\${rd}.png`);
 
-            setTimeout(() => {
-                fs.unlink(savePath, () => { });
-            }, 30 * 1000);
+                await detailPageEl.screenshot({ path: tempPath });
 
-            return rd;
+                fs.renameSync(tempPath, savePath);
+
+                setTimeout(() => {
+                    fs.unlink(savePath, () => { });
+                }, 30 * 1000);
+
+                rds.push(rd);
+            }
+
+            return rds;
         }
         catch (err) {
             console.error(err);
             return false;
         }
+    }
+
+    async setDefaultSize(data: { qqId: number, groupId: number, size: number }) {
+        const { qqId, groupId, size } = data;
+        try {
+            await userSettingsStore.update({ qq_id: qqId, group_id: groupId }, { qq_id: qqId, group_id: groupId, size }, { upsert: true });
+        }
+        catch (err) {
+            console.error(err);
+        }
+    }
+
+    async getSizeSetting(data: { qqId: number, groupId: number }) {
+        const { qqId, groupId } = data;
+        try {
+            const userSettingData = await userSettingsStore.findOne({ qq_id: qqId, group_id: groupId });
+            const size = userSettingData.size;
+            return size;
+        }
+        catch (err) {
+            console.error(err);
+            return 0;
+        }
+
     }
 }

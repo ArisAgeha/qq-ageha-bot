@@ -3,7 +3,7 @@ import fs = require('fs');
 import path = require('path');
 import puppeteer = require('puppeteer');
 import { sleep, TextHelper } from '../utils/tools';
-import { screenshotStore } from '../nedb/Nedb';
+import { screenshotStore, ScreenshotStore } from '../nedb/Nedb';
 import { idText } from 'typescript';
 import { isUndefined } from '../utils/types';
 const gm = require('gm');
@@ -113,7 +113,7 @@ export class Screenshots {
 
     async listAlias(msg: Meta<'message'>) {
         const id = msg.groupId || msg.userId;
-        const list = await screenshotStore.find({ belong_id: id }).exec();
+        const list: ScreenshotStore[] = await screenshotStore.find({ belong_id: id }).exec();
         if (list.length > 0) {
             const res = list.reduce((prev, cur, index) => {
                 return prev + `[${index + 1}] ${cur.name} ${cur.src}\r\n`;
@@ -135,7 +135,7 @@ export class Screenshots {
             let src = '';
             if (alias) {
                 const id = msg.groupId || msg.userId;
-                const srcModelData = await screenshotStore.find({ belong_id: id, name: alias }).exec();
+                const srcModelData: ScreenshotStore[] = await screenshotStore.find({ belong_id: id, name: alias }).exec();
 
                 if (srcModelData.length === 0) {
                     msg.$send('未绑定此别名');

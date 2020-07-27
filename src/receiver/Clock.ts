@@ -1,10 +1,9 @@
 import { App, Meta } from 'koishi';
-import { convertCompilerOptionsFromJson, createTextChangeRange } from 'typescript';
-import { format } from 'path';
-import { datastore } from '../nedb/Nedb';
+import { clockStore, ClockStore } from '../nedb/Nedb';
+import { group } from 'console';
 const dayjs = require('dayjs');
 
-export class FarmNotifier {
+export class Clock {
     app: App;
 
     constructor(app: App) {
@@ -13,16 +12,14 @@ export class FarmNotifier {
     }
 
     private initReceiver() {
-        const app = this.app;
-
-        this.app.group(435649543).receiver.on('message', (msg) => {
+        this.app.receiver.on('message', (msg) => {
             const text = msg.rawMessage;
 
             if (text === 'farm') this.setFarmDate(msg);
             if (text === 'show clock') this.showClock(msg);
             if (text === 'show all clock') this.showAllClock(msg);
             if (/^yc \d+[.\d*]*(ms|s|sec|secs|second|seconds|h|hour|hours|m|min|mins)/.test(text)) this.delayNotify(msg);
-            if (/^\[CQ:at,qq=2622692056\] cancel/.test(text)) this.cancelNotify(msg);
+            if (/^\cancel clock/.test(text)) this.cancelNotify(msg);
         })
 
         this.checkNotify();
@@ -32,9 +29,9 @@ export class FarmNotifier {
     // business function
     private async showClock(msg: Meta<'message'>) {
         const qqId = msg.sender.userId;
-        const groupId = msg.groupId;
+        const groupId = msg.groupId || 0;
 
-        const clocks = await datastore.find({ qqId, groupId });
+        const clocks: ClockStore[] = await clockStore.find({ qq_id: qqId, group_id: groupId }).exec();
         if (clocks.length === 0) {
             msg.$send(`[CQ:at,qq=${qqId}] 您还未调闹钟`);
             return;
@@ -43,11 +40,11 @@ export class FarmNotifier {
             const prefix = `[CQ:at,qq=${qqId}]\r\n`
             const content = clocks
                 .sort((a, b) => {
-                    return a.notifyDate - b.notifyDate
+                    return a.notify_date - b.notify_date
                 })
                 .map((item, index) => {
-                    const formatDate = dayjs(item.notifyDate).format('YYYY-MM-DD HH:mm:ss');
-                    return `[${index}] ${item.desc ? item.desc : '默认闹钟'}: ${formatDate} \r\n`;
+                    const formatDate = dayjs(item.notify_date).format('YYYY-MM-DD HH:mm:ss');
+                    return `[${index + 1}] ${item.desc ? item.desc : '默认闹钟'}: ${formatDate} \r\n`;
                 })
                 .reduce((prev, cur) => {
                     return prev + cur;
@@ -59,11 +56,11 @@ export class FarmNotifier {
 
     private async showAllClock(msg: Meta<'message'>) {
         const qqId = msg.sender.userId;
-        const groupId = msg.groupId;
+        const groupId = msg.groupId || 0;
 
-        const clocks = await datastore.find({ groupId });
+        const clocks: ClockStore[] = groupId ? await clockStore.find({ group_id: groupId }) : await clockStore.find({ group_id: groupId, qq_id: qqId });
         if (clocks.length === 0) {
-            msg.$send(`[CQ:at,qq=${qqId}] 群内未设置闹钟`);
+            msg.$send(`未设置闹钟`);
             return;
         }
         else {
@@ -71,18 +68,18 @@ export class FarmNotifier {
             let curIndex = 1;
             const content = clocks
                 .sort((a, b) => {
-                    return a.notifyDate - b.notifyDate
+                    return a.notify_date - b.notify_date
                 })
                 .map((item, index) => {
                     let text = '';
-                    if (item.qqId !== curId) {
-                        curId = item.qqId;
+                    if (item.qq_id !== curId) {
+                        curId = item.qq_id;
                         curIndex = 1;
-                        text += `======= [CQ:at,qq=${item.qqId}] =======\r\n`;
+                        text += `======= [CQ:at,qq=${item.qq_id}] =======\r\n`;
                     }
 
-                    const formatDate = dayjs(item.notifyDate).format('YYYY-MM-DD HH:mm:ss');
-                    text += `[${curIndex}] ${item.desc ? item.desc : '默认闹钟'}: ${formatDate} \r\n`;
+                    const formatDate = dayjs(item.notify_date).format('YYYY-MM-DD HH:mm:ss');
+                    text += `[${curIndex++}] ${item.desc ? item.desc : '默认闹钟'}: ${formatDate} \r\n`;
 
                     return text;
                 })
@@ -96,32 +93,35 @@ export class FarmNotifier {
 
     private async cancelNotify(msg: Meta<'message'>) {
         const qqId = msg.sender.userId;
-        const groupId = msg.groupId;
+        const groupId = msg.groupId || 0;
 
         const textArray = msg.rawMessage.split(' ');
         const desc = textArray.length === 3 ? textArray[2] : '';
 
-        await datastore.remove({ qqId: qqId, groupId: groupId, desc });
+        await clockStore.remove({ qq_id: qqId, group_id: groupId, desc });
         msg.$send(`[CQ:at,qq=${qqId}] 已取消提醒${desc}`)
     }
 
     private async checkNotify() {
         setInterval(async () => {
             const now = Number(Date.now());
-            const data = await datastore.find({}).exec();
+            const data: ClockStore[] = await clockStore.find({}).exec();
             if (!data) return;
 
-            data.forEach((item: NotifyData) => {
-                if (item.notifyDate <= now && !item.isNotified) {
-                    this.app.sender.sendGroupMsg(item.groupId, `[CQ:at,qq=${item.qqId}] \r\n够钟${item.desc}辣！`)
-                    datastore.remove({ qqId: item.qqId, groupId: item.groupId, desc: item.desc });
-                    // datastore.update(
-                    //     { qqId: item.qqId, groupId: item.groupId, desc: item.desc },
-                    //     { qqId: item.qqId, groupId: item.groupId, notifyDate: item.notifyDate, desc: item.desc, isNotified: true }
-                    // )
+            data.forEach((item) => {
+                const qqId = item.qq_id;
+                const groupId = item.group_id || 0;
+
+                if (item.notify_date <= now && !item.is_notifier) {
+                    const msg = `[CQ:at,qq=${item.qq_id}] [${item.desc}] 够钟辣！`;
+
+                    if (groupId) this.app.sender.sendGroupMsg(groupId, msg)
+                    else this.app.sender.sendPrivateMsg(qqId, msg)
+                    clockStore.remove({ qq_id: qqId, group_id: groupId, desc: item.desc });
+                    clockStore.remove({})
                 }
-                if (item.isNotified) {
-                    datastore.remove({ qqId: item.qqId, groupId: item.groupId, desc: item.desc });
+                if (item.is_notifier) {
+                    clockStore.remove({ qq_id: qqId, group_id: groupId, desc: item.desc });
                 }
             })
         }, 1 * 1000);
@@ -129,7 +129,7 @@ export class FarmNotifier {
 
     private async delayNotify(msg: Meta<'message'>) {
         const qqId = msg.sender.userId;
-        const groupId = msg.groupId;
+        const groupId = msg.groupId || 0;
 
         const now = Number(Date.now());
         const text = msg.rawMessage;
@@ -141,14 +141,14 @@ export class FarmNotifier {
         const delayTimeValueMatch = delayTime.match(/^\d+[.\d*]*/);
         const delayTimeValue = delayTimeValueMatch ? Number(delayTimeValueMatch[0]) : 0;
 
-        const notifyItem: NotifyData = await datastore.findOne({ qqId, groupId, desc });
+        const notifyItem: ClockStore = await clockStore.findOne({ qq_id: qqId, group_id: groupId, desc });
 
         let notifyDate;
-        if (notifyItem && !notifyItem.isNotified) {
-            if (/(h|hour|hours)/.test(delayTime)) notifyDate = notifyItem.notifyDate + delayTimeValue * 60 * 60 * 1000;
-            else if (/ms/.test(delayTime)) notifyDate = notifyItem.notifyDate + delayTimeValue;
-            else if (/(s|sec|secs|second|seconds)/.test(delayTime)) notifyDate = notifyItem.notifyDate + delayTimeValue * 1000;
-            else notifyDate = notifyItem.notifyDate + delayTimeValue * 60 * 1000;
+        if (notifyItem && !notifyItem.is_notifier) {
+            if (/(h|hour|hours)/.test(delayTime)) notifyDate = notifyItem.notify_date + delayTimeValue * 60 * 60 * 1000;
+            else if (/ms/.test(delayTime)) notifyDate = notifyItem.notify_date + delayTimeValue;
+            else if (/(s|sec|secs|second|seconds)/.test(delayTime)) notifyDate = notifyItem.notify_date + delayTimeValue * 1000;
+            else notifyDate = notifyItem.notify_date + delayTimeValue * 60 * 1000;
         }
         else {
             if (/(h|hour|hours)/.test(delayTime)) notifyDate = now + delayTimeValue * 60 * 60 * 1000;
@@ -157,9 +157,9 @@ export class FarmNotifier {
             else notifyDate = now + delayTimeValue * 60 * 1000;
         }
 
-        await datastore.update(
-            { qqId: qqId, groupId: groupId, desc },
-            { qqId: qqId, groupId: groupId, notifyDate, isNotified: false, desc },
+        await clockStore.update(
+            { qq_id: qqId, group_id: groupId, desc },
+            { qq_id: qqId, group_id: groupId, notify_date: notifyDate, is_notified: false, desc },
             { upsert: true }
         )
 
@@ -169,50 +169,27 @@ export class FarmNotifier {
 
     private async setFarmDate(msg: Meta<'message'>) {
         const qqId = msg.sender.userId;
-        const groupId = msg.groupId;
+        const groupId = msg.groupId || 0;
         const now = Number(Date.now());
         // const nextNotifyDate = now + 60 * 1000;
         const nextNotifyDate = now + 8 * 60 * 60 * 1000;
 
         const desc = '';
 
-        const lastNotifyDateData: NotifyData = await datastore.findOne({
-            qqId,
-            groupId,
+        const lastNotifyDateData: ClockStore = await clockStore.findOne({
+            qq_id: qqId,
+            group_id: groupId,
             desc
         });
 
         if (lastNotifyDateData) {
-            const lastNotifyDate = lastNotifyDateData.notifyDate;
-            await datastore.update({ qqId, groupId, desc }, { qqId, groupId, notifyDate: nextNotifyDate, isNotified: false, desc });
+            await clockStore.update({ qq_id: qqId, group_id: groupId, desc }, { qq_id: qqId, group_id: groupId, notify_date: nextNotifyDate, is_notified: false, desc });
         }
         else {
-            await datastore.insert({ qqId, groupId, notifyDate: nextNotifyDate, isNotified: false, desc });
+            await clockStore.insert({ qq_id: qqId, group_id: groupId, notify_date: nextNotifyDate, is_notified: false, desc });
         }
 
         const formatDate = dayjs(nextNotifyDate).format('YYYY-MM-DD HH:mm:ss');
         await msg.$send(`[CQ:at,qq=${qqId}] Mark 下次提醒时间为${formatDate}`);
     }
-
-    // function tools
-    private listenToGroupMemeber(group: GroupId, users: UserId[], callback: Cb) {
-        this.app.group(group).receiver.on('message', (msg) => {
-            if (users.includes(msg?.sender?.userId)) {
-                callback(msg);
-            }
-        })
-    }
-
-}
-
-type UserId = number;
-type GroupId = number;
-type Cb = Function;
-
-interface NotifyData {
-    qqId: number;
-    groupId: number;
-    notifyDate: number;
-    isNotified: boolean;
-    desc: string;
 }

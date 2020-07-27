@@ -1,5 +1,5 @@
 import { App } from 'koishi';
-import { FarmNotifier } from './receiver/FarmNotifier';
+import { Clock } from './receiver/Clock';
 import { MiniGame } from './receiver/MiniGame';
 import { MoeWiki } from './receiver/MoeWiki';
 import { Konachan } from './receiver/Konachan';
@@ -26,7 +26,7 @@ const app = new App(config as any);
 
 app.start()
 
-new FarmNotifier(app);
+new Clock(app);
 new MiniGame(app);
 new MoeWiki(app);
 new Konachan(app);
@@ -35,7 +35,7 @@ new PokeWiki(app);
 new Screenshots(app);
 
 groupShouldNotice.forEach((groupId) => {
-    app.sender.sendGroupMsg(groupId, '服务器已重新启动...'); 
+    // app.sender.sendGroupMsg(groupId, '服务器已重新启动...'); 
 })
 
 console.log('Koishi is started');

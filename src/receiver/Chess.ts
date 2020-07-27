@@ -150,8 +150,6 @@ export class Chess {
         const xDiff = targetPos[0] - currentPos[0];
         const yDiff = targetPos[1] - currentPos[1];
 
-        console.log(targetPos);
-        console.log(currentPos);
         // never move
         if (xDiff === 0 && yDiff === 0) return false;
 

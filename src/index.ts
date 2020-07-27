@@ -6,6 +6,7 @@ import { Konachan } from './receiver/Konachan';
 import { Chess } from './receiver/Chess';
 import { PokeWiki } from './receiver/PokeWiki';
 import { Screenshots } from './receiver/Screenshots';
+import { RandomPicture } from './receiver/RandomPicture';
 
 const groupShouldNotice = [435649543];
 
@@ -33,9 +34,10 @@ new Konachan(app);
 new Chess(app);
 new PokeWiki(app);
 new Screenshots(app);
+new RandomPicture(app);
 
 groupShouldNotice.forEach((groupId) => {
-    // app.sender.sendGroupMsg(groupId, '服务器已重新启动...'); 
+    app.sender.sendGroupMsg(groupId, '服务器已重新启动...'); 
 })
 
 console.log('Koishi is started');

@@ -21,7 +21,7 @@ export class MoeWiki {
     private async initMoeWiki() {
         const app = this.app;
 
-        this.app.group(435649543).receiver.on('message', (msg) => {
+        this.app.receiver.on('message', (msg) => {
             const text = msg.rawMessage;
 
             for (const word of this.searchPrefixs) {

@@ -7,6 +7,7 @@ import { Chess } from './receiver/Chess';
 import { PokeWiki } from './receiver/PokeWiki';
 import { Screenshots } from './receiver/Screenshots';
 import { RandomPicture } from './receiver/RandomPicture';
+import { Test } from './receiver/test';
 
 const groupShouldNotice = [435649543];
 
@@ -35,6 +36,7 @@ new Chess(app);
 new PokeWiki(app);
 new Screenshots(app);
 new RandomPicture(app);
+new Test(app);
 
 groupShouldNotice.forEach((groupId) => {
     app.sender.sendGroupMsg(groupId, '服务器已重新启动...'); 

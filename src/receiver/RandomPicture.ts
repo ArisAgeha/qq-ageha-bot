@@ -26,9 +26,23 @@ export class RandomPicture {
         this.app.receiver.on('message', (msg) => {
             const text = msg.rawMessage;
 
-            if (/^随机 -size \d+$/.test(text)) this.setSize(msg);
+            if (text.startsWith('随机 -relative')) this.setRelative(msg);
+            else if (/^随机 -size \d+$/.test(text)) this.setSize(msg);
             else if (text.toLowerCase().startsWith(this.prefix)) this.getRandomPicture(msg);
         })
+    }
+
+    private async setRelative(msg: Meta<'message'>) {
+        const text = msg.rawMessage;
+        if (!/^随机 -relative (0\.\d+)$|1$|1.0+$|0$|0.0+$/.test(text)) {
+            msg.$send('相关性指数指定错误，请输入[0-1]之间的小数，数值越大，相关性越强');
+            return;
+        }
+        const groupId = msg.groupId;
+        const relative = Number(text.match(/(0\.\d+)$|1$|1.0+$|0$|0.0+$/)[0]);
+
+        await this.randomPictureService.setRelative({ groupId, relative });
+        msg.$send('相关指数设定成功');
     }
 
     private async setSize(msg: Meta<'message'>) {
@@ -58,10 +72,11 @@ export class RandomPicture {
         const text = msg.rawMessage;
         const content = text.slice(2);
         const { keyword, count } = this.parseText(content)
-        const size = await this.randomPictureService.getSizeSetting({ groupId: msg.groupId, qqId: msg.userId });
         msg.$send(`${keyword}加载中...`);
 
-        const rds = await this.randomPictureService.getPicture(keyword, count, size);
+        const size = await this.randomPictureService.getSizeSetting({ groupId: msg.groupId, qqId: msg.userId });
+        const relative = await this.randomPictureService.getRelative({ groupId: msg.groupId });
+        const rds = await this.randomPictureService.getPicture(keyword, count, size, relative);
 
         if (rds) {
             rds.forEach(rd => {
@@ -80,7 +95,7 @@ export class RandomPicture {
             count: 1
         }
 
-        const countMatch = text.match(/(.+) (-c \d+)/);
+        const countMatch = text.match(/(.+)(\* *\d+)/);
         if (countMatch && countMatch[2]) {
             let count = Number(countMatch[2].match(/\d+/)[0]);
 

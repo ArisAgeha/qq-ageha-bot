@@ -5,16 +5,21 @@ import { userSettingsStore } from '../nedb/Nedb';
 import { groupFields } from 'koishi';
 
 export class RandomPictureService {
-    async getPicture(keyword: string, count: number, size: number) {
+    async getPicture(keyword: string, count: number, size: number, relative: number) {
         try {
             const src = `https://image.baidu.com/search/index?z=${size}&tn=baiduimage&ps=1&ct=201326592&lm=-1&cl=2&nc=1&ie=utf-8&word=${keyword}`;
+
+            const maxHeight = 10000;
+            const minHeight = 1000;
+            const loadHeight = Math.floor(Math.min(Math.max(1000 / relative, minHeight), maxHeight));
 
             const browser = await puppeteer.launch({});
             const page = await browser.newPage();
             await page.goto(src);
+            console.log(loadHeight);
             page.setViewport({
                 width: 1600,
-                height: 5000
+                height: loadHeight
             });
 
             await page.waitFor(2000);
@@ -71,7 +76,7 @@ export class RandomPictureService {
         const { qqId, groupId } = data;
         try {
             const userSettingData = await userSettingsStore.findOne({ qq_id: qqId, group_id: groupId });
-            const size = userSettingData.size;
+            const size = userSettingData?.size || 0;
             return size;
         }
         catch (err) {
@@ -79,5 +84,29 @@ export class RandomPictureService {
             return 0;
         }
 
+    }
+
+    async setRelative(data: { groupId: number, relative: number }) {
+        const { relative, groupId } = data;
+        try {
+            await userSettingsStore.update({ qq_id: 0, group_id: groupId }, { qq_id: 0, group_id: groupId, relative }, { upsert: true });
+        }
+        catch (err) {
+            console.error(err);
+        }
+    }
+
+    async getRelative(data: { groupId: number }) {
+        const { groupId } = data;
+        const defaultRelative = 0.5;
+        try {
+            const relativeData = await userSettingsStore.findOne({ qq_id: 0, group_id: groupId });
+            const relative = relativeData?.relative || defaultRelative;
+            return relative;
+        }
+        catch (err) {
+            console.error(err);
+            return defaultRelative;
+        }
     }
 }

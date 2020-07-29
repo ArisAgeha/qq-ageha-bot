@@ -50,8 +50,9 @@ export class MoeWiki {
         const vNode = await this.buildVNode($);
         this.saveVNode(msg, vNode);
         const pictureCq = `[CQ:image,file=${vNode.pictureFilename}]`;
+        const targetUrl = encodeURI(`https://zh.moegirl.org.cn/${word.trim()}`);
 
-        const res = vNode.introduction + pictureCq + '\r\n' + vNode.catalog + '\r\n' + vNode.suffix;
+        const res = vNode.introduction + pictureCq + '\r\n' + vNode.catalog + '\r\n' + vNode.suffix+ '\r\n' + targetUrl;
         await msg.$send(`[CQ:at,qq=${sender}]\r\n${res}`);
         setTimeout(() => {
             fs.unlink(vNode.picturePath, () => { });
@@ -227,7 +228,8 @@ export class MoeWiki {
         for (let i = 0; i < domArray.length; i++) {
             const item = domArray[i];
             if (item.name === 'h2') {
-                catalog.push(item.children[1].attribs.id)
+                const target = item.children[1] ? item.children[1].attribs.id : item.children[0].attribs.id;
+                catalog.push(target);
             }
         }
         return catalog;

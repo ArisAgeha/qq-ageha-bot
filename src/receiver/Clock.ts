@@ -85,7 +85,6 @@ export class Clock {
                     if (groupId) this.app.sender.sendGroupMsg(groupId, msg)
                     else this.app.sender.sendPrivateMsg(qqId, msg)
                     clockStore.remove({ qq_id: qqId, group_id: groupId, desc: item.desc });
-                    clockStore.remove({})
                 }
                 if (item.is_notifier) {
                     clockStore.remove({ qq_id: qqId, group_id: groupId, desc: item.desc });

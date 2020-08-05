@@ -27,7 +27,7 @@ export class Test {
         this.app.receiver.on('message', (msg) => {
             const text = msg.rawMessage;
             if (this.prefix === text) this.sendTest(msg);
-            else if (this.clearPrefix === text) this.clearDb(msg);
+            else if (text.startsWith(this.clearPrefix)) this.clearDb(msg);
         })
     }
 
@@ -48,9 +48,27 @@ export class Test {
     }
 
     private async clearDb(msg: Meta<'message'>) {
-        const stores = [screenshotStore, clockStore, userSettingsStore];
-        for (let store of stores) {
-            const res = await store.remove({}, { multi: true });
+        const type = msg.rawMessage.slice(9);
+        if (type) {
+            const storesMap = {
+                screenshotStore: screenshotStore,
+                clockStore: clockStore,
+                userSettingsStore: userSettingsStore
+            }
+            const store = storesMap[type]
+            
+            if (store) {
+                await store.remove({}, { multi: true });
+            }
+            else {
+                msg.$send(`没有找到指定的store: ${type}`)
+            }
+        }
+        else {
+            const stores = [screenshotStore, clockStore, userSettingsStore];
+            for (let store of stores) {
+                const res = await store.remove({}, { multi: true });
+            }
         }
         msg.$send('complete');
     }
